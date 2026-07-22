@@ -1,0 +1,5 @@
+football_predict.db
+__pycache__/
+*.pyc
+uploads/*
+.env

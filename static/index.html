@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>球赛智析</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #17212b; background: #f5f7fb; }
+    * { box-sizing: border-box; } body { margin: 0; } header { background: #172a46; color: white; padding: 22px 7vw; display:flex; justify-content:space-between; align-items:center; }
+    header h1 { margin: 0; font-size: 22px; } header small { opacity: .72; } main { max-width: 1180px; margin: 28px auto; padding: 0 20px; }
+    .toolbar { display:flex; gap:12px; align-items:center; margin-bottom:20px; flex-wrap:wrap; } button { border:0; border-radius:8px; padding:10px 16px; cursor:pointer; background:#2b6de0; color:white; font-weight:600; } button.secondary { background:white; color:#2b6de0; border:1px solid #dbe3f0; }
+    .layout { display:grid; grid-template-columns: 250px 1fr; gap:20px; } .panel, .card { background:white; border:1px solid #e4eaf2; border-radius:14px; padding:18px; box-shadow:0 5px 18px #1e315c0b; }
+    label { display:block; color:#65748a; font-size:13px; margin:14px 0 6px; } select, input { width:100%; padding:10px; border:1px solid #dbe3f0; border-radius:8px; }
+    .events { display:grid; grid-template-columns: repeat(auto-fit,minmax(270px,1fr)); gap:14px; } .event h3 { margin:0 0 8px; } .muted { color:#77869a; font-size:13px; } .badge { display:inline-block; background:#edf4ff; color:#2763c5; padding:4px 8px; border-radius:6px; font-size:12px; margin-bottom:10px; }
+    .result { margin-top:24px; } .result-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap:12px; } .metric { background:#f7f9fc; border-radius:10px; padding:14px; } .metric strong { display:block; font-size:22px; margin-top:8px; color:#1d55b4; } .bar { height:8px; background:#e7edf6; border-radius:8px; overflow:hidden; margin-top:8px; } .bar i { display:block; height:100%; background:#3b7ce5; }
+    ul { padding-left:20px; line-height:1.8; } .notice { background:#fff8e8; color:#7f5b13; border-radius:10px; padding:12px; margin-top:14px; font-size:13px; }
+    @media(max-width:700px) { .layout { grid-template-columns:1fr; } header { padding:18px 20px; } }
+  </style>
+</head>
+<body>
+  <header><div><h1>球赛智析</h1><small>本地足球数据预测 MVP</small></div><small>模型：poisson-mvp-0.1</small></header>
+  <main>
+    <div class="toolbar"><button class="secondary" onclick="loadEvents()">刷新赛事</button><button class="secondary" onclick="syncData()">同步公开赛事</button><label class="upload"><input id="image" type="file" accept="image/png,image/jpeg,image/webp" onchange="uploadImage()" hidden><button class="secondary" onclick="document.getElementById('image').click()">上传比赛截图</button></label><button class="secondary" onclick="showHistory()">查看预测历史</button><span id="status" class="muted"></span></div>
+    <div class="layout"><aside class="panel"><h3>筛选</h3><label>联赛</label><select id="league" onchange="renderEvents()"><option value="">全部联赛</option></select><label>关键词</label><input id="keyword" placeholder="球队名称" oninput="renderEvents()" /><div class="notice">当前为演示数据。图片上传接口已完成，OCR 引擎和真实数据源待配置。</div></aside><section><div id="events" class="events"></div><div id="result"></div></section></div>
+  </main>
+  <script>
+    let events = [];
+    const $ = id => document.getElementById(id);
+    async function loadEvents() { $('status').textContent = '正在读取本地赛事…'; const r = await fetch('/api/events'); events = await r.json(); const leagues = [...new Set(events.map(e => e.league))]; $('league').innerHTML = '<option value="">全部联赛</option>' + leagues.map(x => `<option>${x}</option>`).join(''); renderEvents(); $('status').textContent = `已加载 ${events.length} 场赛事`; }
+    function renderEvents() { const league = $('league').value, keyword = $('keyword').value.trim(); const list = events.filter(e => (!league || e.league === league) && (!keyword || `${e.home_team}${e.away_team}`.includes(keyword))); $('events').innerHTML = list.map(e => `<article class="card event"><span class="badge">${e.league}</span><h3>${e.home_team} vs ${e.away_team}</h3><div class="muted">${e.kickoff_at} · 让球 ${e.handicap > 0 ? '+' : ''}${e.handicap}</div><br><button onclick="predict(${e.id})">生成预测</button></article>`).join('') || '<div class="card">没有符合条件的赛事。</div>'; }
+    async function predict(id) { $('result').innerHTML = '<div class="card result">模型计算中…</div>'; const r = await fetch('/api/predict', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({event_id:id})}); const data = await r.json(); if (data.error) return $('result').innerHTML = `<div class="card result">${data.error}</div>`; const p = data.prediction, probs = p.win_draw_loss; const cards = Object.entries(probs).map(([k,v]) => `<div class="metric">${k}<strong>${(v*100).toFixed(1)}%</strong><div class="bar"><i style="width:${v*100}%"></i></div></div>`).join(''); const topHtft = Object.entries(p.half_full).slice(0,3).map(([k,v]) => `${k} ${(v*100).toFixed(1)}%`).join('、'); const totals = Object.entries(p.total_goals).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${k}球 ${(v*100).toFixed(1)}%`).join('、'); $('result').innerHTML = `<div class="card result"><h2>${data.event.home_team} vs ${data.event.away_team}</h2><div class="muted">模型倾向：${p.recommendation} · 置信度 ${(p.confidence*100).toFixed(0)}% · 期望进球 ${p.expected_goals.home} - ${p.expected_goals.away}</div><div class="result-grid">${cards}<div class="metric">总进球<strong>${totals}</strong></div><div class="metric">半全场<strong>${topHtft}</strong></div><div class="metric">参考比分<strong>${p.score.home}:${p.score.away}</strong></div></div><h3>分析依据</h3><ul>${p.factors.map(x=>`<li>${x}</li>`).join('')}</ul><div class="notice">这是概率分析，不代表确定赛果，也不构成投注建议。</div></div>`; }
+    async function uploadImage() { const file = $('image').files[0]; if (!file) return; const form = new FormData(); form.append('image', file); $('status').textContent = '正在识别图片…'; const r = await fetch('/api/upload', {method:'POST', body:form}); const data = await r.json(); $('status').textContent = data.message || data.error || '处理完成'; if (data.error) return; const candidates = data.candidates || []; $('result').innerHTML = `<div class="card result"><h2>截图识别结果</h2><p class="muted">${data.text || '未识别到可用文字'}</p><h3>候选赛事</h3>${candidates.length ? candidates.map(x => `<p><b>${x.event.home_team} vs ${x.event.away_team}</b>　匹配度 ${(x.match_score*100).toFixed(0)}%　<button onclick="predict(${x.event.id})">确认并预测</button></p>`).join('') : '<p class="muted">没有自动匹配到赛事，请从赛事列表手动选择。</p>'}</div>`; }
+    async function syncData() { $('status').textContent = '正在同步公开赛事…'; const r = await fetch('/api/sync/football-data', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({days:14})}); const data = await r.json(); $('status').textContent = data.error || `同步完成：新增 ${data.imported} 场，共读取 ${data.total} 场`; if (!data.error) loadEvents(); }
+    async function showHistory() { const r = await fetch('/api/predictions'); const rows = await r.json(); $('result').innerHTML = `<div class="card result"><h2>预测历史</h2>${rows.length ? rows.map(x => `<p><b>${x.home_team} vs ${x.away_team}</b>　<span class="muted">${x.generated_at.replace('T',' ').slice(0,16)} · ${x.payload.recommendation} · 置信度 ${(x.payload.confidence*100).toFixed(0)}%${x.result ? ` · 赛果 ${x.result}` : ''}</span></p>`).join('') : '<p class="muted">还没有预测记录。</p>'}</div>`; }
+    loadEvents();
+  </script>
+</body>
+</html>
