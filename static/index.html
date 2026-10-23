@@ -14,25 +14,577 @@
     .events { display:grid; grid-template-columns: repeat(auto-fit,minmax(270px,1fr)); gap:14px; } .event h3 { margin:0 0 8px; } .muted { color:#77869a; font-size:13px; } .badge { display:inline-block; background:#edf4ff; color:#2763c5; padding:4px 8px; border-radius:6px; font-size:12px; margin-bottom:10px; }
     .result { margin-top:24px; } .result-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap:12px; } .metric { background:#f7f9fc; border-radius:10px; padding:14px; } .metric strong { display:block; font-size:22px; margin-top:8px; color:#1d55b4; } .bar { height:8px; background:#e7edf6; border-radius:8px; overflow:hidden; margin-top:8px; } .bar i { display:block; height:100%; background:#3b7ce5; }
     ul { padding-left:20px; line-height:1.8; } .notice { background:#fff8e8; color:#7f5b13; border-radius:10px; padding:12px; margin-top:14px; font-size:13px; }
+    .pool-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0; padding:12px; background:#f7f9fc; border-radius:10px; }
+    .market-choice { display:inline-flex; align-items:center; gap:5px; margin:0; color:#17212b; }
+    .market-choice input { width:auto; }
+    .selection-toggle { font-weight:600; color:#2763c5; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .pool-result { margin-top:14px; border-left:4px solid #2b6de0; }
+    .page-view[hidden] { display:none; }
+    .page-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
+    .page-heading h2 { margin:0; }
+    .modal[hidden] { display:none; }
+    .modal { position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; padding:20px; background:#172a4670; }
+    .modal-card { position:relative; width:min(760px, 100%); max-height:90vh; overflow:auto; background:white; border-radius:14px; padding:24px; box-shadow:0 20px 60px #172a4666; }
+    .modal-close { position:absolute; top:10px; right:12px; padding:4px 10px; background:transparent; color:#65748a; font-size:24px; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+    .toast { position:fixed; left:50%; bottom:28px; z-index:10; max-width:min(90vw,520px); padding:12px 18px; border-radius:10px; background:#172a46; color:white; box-shadow:0 8px 24px #172a4633; opacity:0; pointer-events:none; transform:translate(-50%,12px); transition:opacity .2s, transform .2s; }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    .toast.error { background:#b42318; }
+    button.is-loading { cursor:wait; opacity:.78; }
+    button.is-loading::before { content:''; display:inline-block; width:12px; height:12px; margin-right:7px; vertical-align:-1px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:button-spin .7s linear infinite; }
+    @keyframes button-spin { to { transform:rotate(360deg); } }
     @media(max-width:700px) { .layout { grid-template-columns:1fr; } header { padding:18px 20px; } }
   </style>
 </head>
 <body>
-  <header><div><h1>球赛智析</h1><small>本地足球数据预测 MVP</small></div><small>模型：poisson-mvp-0.1</small></header>
+  <header><div><h1>球赛智析</h1><small>本地足球数据预测 MVP</small></div><small>模型：Poisson 概率分布 v0.2</small></header>
   <main>
-    <div class="toolbar"><button class="secondary" onclick="loadEvents()">刷新赛事</button><button class="secondary" onclick="syncData()">同步公开赛事</button><label class="upload"><input id="image" type="file" accept="image/png,image/jpeg,image/webp" onchange="uploadImage()" hidden><button class="secondary" onclick="document.getElementById('image').click()">上传比赛截图</button></label><button class="secondary" onclick="showHistory()">查看预测历史</button><span id="status" class="muted"></span></div>
-    <div class="layout"><aside class="panel"><h3>筛选</h3><label>联赛</label><select id="league" onchange="renderEvents()"><option value="">全部联赛</option></select><label>关键词</label><input id="keyword" placeholder="球队名称" oninput="renderEvents()" /><div class="notice">当前为演示数据。图片上传接口已完成，OCR 引擎和真实数据源待配置。</div></aside><section><div id="events" class="events"></div><div id="result"></div></section></div>
+    <div class="toolbar"><button class="secondary" onclick="showPage('home')">赛事首页</button><button class="secondary" onclick="loadEvents()">刷新赛事</button><button class="secondary" onclick="syncData()">同步公开赛事</button><button class="secondary" onclick="showPool()">候选池</button><button class="secondary" onclick="showParlay()">串关</button><label class="upload"><input id="image" type="file" accept="image/png,image/jpeg,image/webp" onchange="uploadImage()" hidden><button id="upload-image-button" class="secondary" onclick="document.getElementById('image').click()">上传比赛截图</button></label><button class="secondary" onclick="showHistory()">预测历史</button><button class="secondary" onclick="showMetrics()">模型表现</button><button onclick="optimizeModel()">运行自我优化</button><span id="status" class="muted"></span></div>
+    <section id="home-page" class="page-view"><div class="layout"><aside class="panel"><h3>筛选</h3><label>联赛</label><select id="league" onchange="renderEvents()"><option value="">全部联赛</option></select><label>比赛日期</label><input id="event-date" type="date" onchange="renderEvents()" /><label>关键词</label><input id="keyword" placeholder="球队名称" oninput="renderEvents()" /><div class="notice">当前为演示数据。图片上传接口已完成，OCR 引擎和真实数据源待配置。</div></aside><section><div id="events" class="events"></div><div id="result"></div></section></div></section>
+    <section id="pool-page" class="page-view" hidden><div id="pool-content"></div></section>
+    <section id="parlay-page" class="page-view" hidden><div id="parlay-content"></div></section>
+    <section id="history-page" class="page-view" hidden><div id="history-content"></div></section>
+    <section id="metrics-page" class="page-view" hidden><div id="metrics-content"></div></section>
   </main>
+  <div id="modal" class="modal" hidden onclick="if (event.target === this) closeModal()"><div class="modal-card"><button class="modal-close" type="button" aria-label="关闭" onclick="closeModal()">×</button><div id="modal-content"></div></div></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script>
     let events = [];
     const $ = id => document.getElementById(id);
-    async function loadEvents() { $('status').textContent = '正在读取本地赛事…'; const r = await fetch('/api/events'); events = await r.json(); const leagues = [...new Set(events.map(e => e.league))]; $('league').innerHTML = '<option value="">全部联赛</option>' + leagues.map(x => `<option>${x}</option>`).join(''); renderEvents(); $('status').textContent = `已加载 ${events.length} 场赛事`; }
-    function renderEvents() { const league = $('league').value, keyword = $('keyword').value.trim(); const list = events.filter(e => (!league || e.league === league) && (!keyword || `${e.home_team}${e.away_team}`.includes(keyword))); $('events').innerHTML = list.map(e => `<article class="card event"><span class="badge">${e.league}</span><h3>${e.home_team} vs ${e.away_team}</h3><div class="muted">${e.kickoff_at} · 让球 ${e.handicap > 0 ? '+' : ''}${e.handicap}</div><br><button onclick="predict(${e.id})">生成预测</button></article>`).join('') || '<div class="card">没有符合条件的赛事。</div>'; }
-    async function predict(id) { $('result').innerHTML = '<div class="card result">模型计算中…</div>'; const r = await fetch('/api/predict', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({event_id:id})}); const data = await r.json(); if (data.error) return $('result').innerHTML = `<div class="card result">${data.error}</div>`; const p = data.prediction, probs = p.win_draw_loss; const cards = Object.entries(probs).map(([k,v]) => `<div class="metric">${k}<strong>${(v*100).toFixed(1)}%</strong><div class="bar"><i style="width:${v*100}%"></i></div></div>`).join(''); const topHtft = Object.entries(p.half_full).slice(0,3).map(([k,v]) => `${k} ${(v*100).toFixed(1)}%`).join('、'); const totals = Object.entries(p.total_goals).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${k}球 ${(v*100).toFixed(1)}%`).join('、'); $('result').innerHTML = `<div class="card result"><h2>${data.event.home_team} vs ${data.event.away_team}</h2><div class="muted">模型倾向：${p.recommendation} · 置信度 ${(p.confidence*100).toFixed(0)}% · 期望进球 ${p.expected_goals.home} - ${p.expected_goals.away}</div><div class="result-grid">${cards}<div class="metric">总进球<strong>${totals}</strong></div><div class="metric">半全场<strong>${topHtft}</strong></div><div class="metric">参考比分<strong>${p.score.home}:${p.score.away}</strong></div></div><h3>分析依据</h3><ul>${p.factors.map(x=>`<li>${x}</li>`).join('')}</ul><div class="notice">这是概率分析，不代表确定赛果，也不构成投注建议。</div></div>`; }
-    async function uploadImage() { const file = $('image').files[0]; if (!file) return; const form = new FormData(); form.append('image', file); $('status').textContent = '正在识别图片…'; const r = await fetch('/api/upload', {method:'POST', body:form}); const data = await r.json(); $('status').textContent = data.message || data.error || '处理完成'; if (data.error) return; const candidates = data.candidates || []; $('result').innerHTML = `<div class="card result"><h2>截图识别结果</h2><p class="muted">${data.text || '未识别到可用文字'}</p><h3>候选赛事</h3>${candidates.length ? candidates.map(x => `<p><b>${x.event.home_team} vs ${x.event.away_team}</b>　匹配度 ${(x.match_score*100).toFixed(0)}%　<button onclick="predict(${x.event.id})">确认并预测</button></p>`).join('') : '<p class="muted">没有自动匹配到赛事，请从赛事列表手动选择。</p>'}</div>`; }
-    async function syncData() { $('status').textContent = '正在同步公开赛事…'; const r = await fetch('/api/sync/football-data', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({days:14})}); const data = await r.json(); $('status').textContent = data.error || `同步完成：新增 ${data.imported} 场，共读取 ${data.total} 场`; if (!data.error) loadEvents(); }
-    async function showHistory() { const r = await fetch('/api/predictions'); const rows = await r.json(); $('result').innerHTML = `<div class="card result"><h2>预测历史</h2>${rows.length ? rows.map(x => `<p><b>${x.home_team} vs ${x.away_team}</b>　<span class="muted">${x.generated_at.replace('T',' ').slice(0,16)} · ${x.payload.recommendation} · 置信度 ${(x.payload.confidence*100).toFixed(0)}%${x.result ? ` · 赛果 ${x.result}` : ''}</span></p>`).join('') : '<p class="muted">还没有预测记录。</p>'}</div>`; }
+    const pageIds = ['home', 'pool', 'parlay', 'history', 'metrics'];
+    function showPage(page) {
+      if (!pageIds.includes(page)) page = 'home';
+      pageIds.forEach(name => { $(`${name}-page`).hidden = name !== page; });
+      window.history.replaceState(null, '', `#${page}`);
+      if (page === 'home') window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+    let toastTimer;
+    function notify(message, type = 'success') {
+      const toast = $('toast');
+      if (!toast) return;
+      clearTimeout(toastTimer);
+      toast.textContent = message;
+      toast.className = `toast show ${type}`;
+      toastTimer = setTimeout(() => { toast.className = 'toast'; }, 2600);
+    }
+    function openModal(content) {
+      $('modal-content').innerHTML = content;
+      $('modal').hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+      $('modal').hidden = true;
+      $('modal-content').innerHTML = '';
+      document.body.style.overflow = '';
+    }
+    async function loadEvents() {
+      $('status').textContent = '正在刷新赛事…';
+      notify('正在刷新赛事…', 'info');
+      try {
+        const r = await fetch('/api/events', {cache: 'no-store'});
+        if (!r.ok) throw new Error(`读取赛事失败（${r.status}）`);
+        const rows = await r.json();
+        if (!Array.isArray(rows)) throw new Error('赛事数据格式错误');
+        events = rows;
+        showPage('home');
+        const supportedLeagues = [['Premier League', '英超'], ['Primera Division', '西甲'], ['La Liga', '西甲'], ['Bundesliga', '德甲'], ['Serie A', '意甲'], ['Ligue 1', '法甲'], ['UEFA Champions League', '欧冠'], ['UEFA Europa League', '欧罗巴'], ['UEFA Europa Conference League', '欧协联'], ['CONMEBOL Libertadores', '解放者杯']];
+        const leagueMap = new Map([...events.map(e => [e.league, e.league_zh || e.league]), ...supportedLeagues]);
+        const leagues = [...leagueMap.keys()];
+        $('league').innerHTML = '<option value="">全部联赛</option>' + leagues.map(x => `<option value="${esc(x)}">${esc(leagueMap.get(x))}</option>`).join('');
+        renderEvents();
+        $('status').textContent = `已刷新 ${events.length} 场赛事`;
+        notify(`赛事已刷新，共 ${events.length} 场`);
+      } catch (error) {
+        const message = error.message || '刷新赛事失败';
+        $('status').textContent = message;
+        notify(message, 'error');
+      }
+    }
+    function renderEvents() { const league = $('league').value, keyword = $('keyword').value.trim(); const list = events.filter(e => (!league || e.league === league) && (!keyword || `${e.home_team}${e.away_team}${e.home_team_zh || ''}${e.away_team_zh || ''}`.includes(keyword))); $('events').innerHTML = list.map(e => `<article class="card event"><span class="badge">${e.league_zh || e.league}</span><h3>${e.home_team_zh || e.home_team} vs ${e.away_team_zh || e.away_team}</h3><div class="muted">${beijingTime(e.kickoff_at)} · 让球 ${e.handicap > 0 ? '+' : ''}${e.handicap}</div><br><button onclick="predict(${e.id})">生成预测</button></article>`).join('') || '<div class="card">没有符合条件的赛事。</div>'; }
+    async function predict(id, lotteryHandicap = null) {
+      notify('正在生成概率预测…', 'info');
+      openModal('<div class="card result">模型计算中…</div>');
+      const body = {event_id:id};
+      if (lotteryHandicap !== null && lotteryHandicap !== '') body.lottery_handicap = Number(lotteryHandicap);
+      try {
+        const r = await fetch('/api/predict', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        const data = await r.json();
+        if (!r.ok || data.error) {
+          notify(data.error || '预测请求失败', 'error');
+          return $('modal-content').innerHTML = `<div class="card result">${esc(data.error || '预测请求失败')}</div>`;
+        }
+      const p = data.prediction, probs = p.win_draw_loss;
+      const cards = Object.entries(probs).map(([k,v]) => `<div class="metric">${esc(k)}<strong>${(v*100).toFixed(1)}%</strong><div class="bar"><i style="width:${v*100}%"></i></div></div>`).join('');
+      const topHtft = Object.entries(p.half_full).slice(0,3).map(([k,v]) => `${esc(k)} ${(v*100).toFixed(1)}%`).join('、');
+      const totals = Object.entries(p.total_goals).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${esc(k)}球 ${(v*100).toFixed(1)}%`).join('、');
+      const scores = (p.score_distribution || []).map(item => `${esc(item.score)} ${(item.probability*100).toFixed(1)}%`).join('、');
+      const handicap = p.handicap?.probabilities ? Object.entries(p.handicap.probabilities).map(([k,v]) => `${esc(k)} ${(v*100).toFixed(1)}%`).join('、') : '未提供竞彩让球';
+      const missing = (p.data_quality?.missing || []).map(esc).join('、') || '无';
+      const context = p.data_context || {};
+      const contextStatus = context.error ? `赛前数据获取失败：${esc(context.error)}` : context.provider ? `${contextStatusLabel(context)} · ${context.cached ? '使用本地缓存' : '刚刚更新'}${context.captured_at ? ` · ${esc(beijingTime(context.captured_at))}` : ''}${context.warnings?.length ? ' · 部分数据缺失' : ''}` : '赛前数据：未接入（仅使用本地历史参数）';
+      latestBatchPredictions = [{event: data.event, prediction: p}];
+      $('modal-content').innerHTML = `<div class="card result"><h2>${teamLabel(data.event, 'home')} vs ${teamLabel(data.event, 'away')}</h2><div class="muted">模型 ${esc(p.model_version)} · ${esc(p.confidence_level)} · 置信度 ${(p.confidence*100).toFixed(1)}% · 期望进球 ${p.expected_goals.home} - ${p.expected_goals.away}</div><p class="muted">${contextStatus}</p><div class="result-grid">${cards}<div class="metric">总进球 Top 3<strong>${totals}</strong></div><div class="metric">半全场 Top 3<strong>${topHtft}</strong></div><div class="metric">比分 Top 5<strong>${scores}</strong></div><div class="metric">让球概率<strong>${handicap}</strong></div></div><h3>分析依据</h3><ul>${p.factors.map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p class="muted">数据完整度 ${(p.data_quality.score*100).toFixed(0)}%；缺少：${missing}</p><button class="secondary" onclick="showPredictionDetails(0)">查看完整详情</button><div class="notice">概率由同一比分分布推导，不代表确定赛果，也不构成投注建议。</div></div>`;
+      $('status').textContent = '预测已生成';
+      notify('预测已生成，结果已显示');
+      } catch (error) {
+        report(error);
+        $('modal-content').innerHTML = '<div class="card result">预测请求失败，请检查本地服务。</div>';
+      }
+    }
+    async function uploadImage() { const file = $('image').files[0]; if (!file) return; const form = new FormData(); form.append('image', file); $('status').textContent = '正在识别图片…'; const r = await fetch('/api/upload', {method:'POST', body:form}); const data = await r.json(); $('status').textContent = data.message || data.error || '处理完成'; if (data.error) return; const candidates = data.candidates || []; $('result').innerHTML = `<div class="card result"><h2>截图识别结果</h2><p class="muted">${data.text || '未识别到可用文字'}</p><h3>候选赛事</h3>${candidates.length ? candidates.map(x => `<p><b>${teamLabel(x.event, 'home')} vs ${teamLabel(x.event, 'away')}</b>　匹配度 ${(x.match_score*100).toFixed(0)}%　<button onclick="predict(${x.event.id})">确认并预测</button></p>`).join('') : '<p class="muted">没有自动匹配到赛事，请从赛事列表手动选择。</p>'}</div>`; }
+    async function syncData() {
+      $('status').textContent = '正在批量同步公开赛事…';
+      notify('正在批量同步公开赛事…', 'info');
+      try {
+        const r = await fetch('/api/sync/public', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({days:14})});
+        const data = await r.json();
+        if (!r.ok || data.error) return report(new Error(data.error || '同步失败'));
+        await loadEvents();
+        const warning = data.warnings?.length ? '；部分数据源未配置或暂不可用' : '';
+        const message = `同步完成：新增 ${data.imported} 场，更新 ${data.updated} 场，接口调用 ${data.request_count} 次${warning}`;
+        $('status').textContent = message;
+        notify(message, data.warnings?.length ? 'info' : 'success');
+      } catch (error) { report(error); }
+    }
+    async function recordResult(eventId) {
+      openModal(`<form id="result-form"><h2>录入最终赛果</h2><p class="muted">填写比赛结束后的实际比分，系统会自动评估该场已生成的预测。</p><label>主队进球<input id="result-home-score" type="number" min="0" max="50" step="1" required></label><label>客队进球<input id="result-away-score" type="number" min="0" max="50" step="1" required></label><div class="modal-actions"><button type="button" class="secondary" onclick="closeModal()">取消</button><button>保存赛果</button></div></form>`);
+      $('result-form').onsubmit = async event => {
+        event.preventDefault();
+        try {
+          const homeScore = Number($('result-home-score').value);
+          const awayScore = Number($('result-away-score').value);
+          const response = await fetch('/api/results', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({event_id:eventId, home_score:homeScore, away_score:awayScore})});
+          const data = await response.json();
+          if (!response.ok || data.error) throw new Error(data.error || '赛果保存失败');
+          closeModal();
+          await showHistory();
+          notify('赛果已记录，相关预测已完成评估', 'success');
+        } catch (error) { report(error); }
+      };
+    }
+    async function syncResults() { notify('正在自动同步已结束赛果…', 'info'); try { const response = await fetch('/api/sync/results', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}); const data = await response.json(); if (!response.ok || data.error) throw new Error(data.error || '赛果同步失败'); await showHistory(); const message = data.updated ? `已同步 ${data.updated} 场赛果，评估 ${data.evaluated} 条预测` : (data.warnings?.[0] || '暂时没有可同步的已结束赛果'); notify(data.warnings?.length ? `${message}；部分比赛未匹配` : message, data.warnings?.length ? 'info' : 'success'); } catch (error) { report(error); } }
+    async function showHistory() { try { showPage('history'); const r = await fetch('/api/predictions'); const rows = await r.json(); $('history-content').innerHTML = `<div class="page-heading"><h2>预测历史</h2><div><button class="secondary" onclick="syncResults()">自动同步已结束赛果</button> <button class="secondary" onclick="showPage('home')">返回赛事首页</button></div></div><div class="card result">${rows.length ? rows.map(x => `<p><b>${teamLabel(x, 'home')} vs ${teamLabel(x, 'away')}</b>　<span class="muted">${x.generated_at.replace('T',' ').slice(0,16)} · ${x.payload.recommendation} · 置信度 ${(x.payload.confidence*100).toFixed(0)}%${x.result ? ` · 赛果 ${x.result}` : ''}</span>${x.result ? '' : ` <button class="secondary" onclick="recordResult(${x.event_id})">手动录入</button>`}</p>`).join('') : '<p class="muted">还没有预测记录。</p>'}</div>`; notify('预测历史已加载'); } catch (error) { report(error); } }
+    async function showMetrics() { try { showPage('metrics'); const r = await fetch('/api/metrics'); const m = await r.json(); $('metrics-content').innerHTML = `<div class="page-heading"><h2>模型表现</h2><button class="secondary" onclick="showPage('home')">返回赛事首页</button></div><div class="card result"><div class="result-grid"><div class="metric">样本数<strong>${m.sample_count}</strong></div><div class="metric">准确率<strong>${m.accuracy == null ? '—' : (m.accuracy*100).toFixed(1)+'%'}</strong></div><div class="metric">Log Loss<strong>${m.log_loss == null ? '—' : m.log_loss}</strong></div><div class="metric">Brier Score<strong>${m.brier_score == null ? '—' : m.brier_score}</strong></div></div><p class="muted">当前模型：${m.active_model ? m.active_model.version : '未初始化'}</p><div class="notice">运行自我优化会先同步已结束赛果，再根据真实比分重新估计进球修正和概率校准；至少需要 20 条已评估预测。</div></div>`; notify('模型表现已加载'); } catch (error) { report(error); } }
+    async function optimizeModel() { $('status').textContent = '正在同步赛果并重新分析模型…'; notify('正在同步赛果并重新分析模型…', 'info'); try { let syncNote = ''; try { const syncResponse = await fetch('/api/sync/results', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}); const syncData = await syncResponse.json(); if (!syncResponse.ok || syncData.error) syncNote = syncData.error || '自动同步赛果失败'; else if (syncData.updated) syncNote = `已同步 ${syncData.updated} 场赛果，评估 ${syncData.evaluated} 条预测；`; } catch (error) { syncNote = `赛果同步未完成：${error.message}；`; } const r = await fetch('/api/optimize', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'}); const data = await r.json(); if (!r.ok || data.error) throw new Error(data.error || '模型优化失败'); const sampleCount = data.sample_count ?? data.candidate?.sample_count ?? data.baseline?.sample_count ?? 0; const message = data.status === 'activated' ? `${syncNote}已基于 ${sampleCount} 条赛果启用新模型 ${data.version}` : data.status === 'insufficient_data' ? `${syncNote}已分析 ${data.sample_count}/${data.minimum_samples} 条赛果，样本不足` : `${syncNote}已基于 ${sampleCount} 条赛果重新分析，模型暂不更换`; $('status').textContent = message; notify(message, data.status === 'insufficient_data' ? 'info' : 'success'); showMetrics(); } catch (error) { report(error); } }
     loadEvents();
+  </script>
+  <script>
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const loadingButtons = new Set();
+    let activeFetches = 0;
+    let loadingReleaseTimer = null;
+    const nativeFetch = window.fetch.bind(window);
+    function startButtonLoading(button) {
+      if (!button || button.dataset.loading === 'true') return;
+      button.dataset.loading = 'true';
+      button.dataset.loadingHtml = button.innerHTML;
+      button.dataset.loadingDisabled = button.disabled ? 'true' : 'false';
+      button.disabled = true;
+      button.classList.add('is-loading');
+      button.innerHTML = '处理中…';
+      loadingButtons.add(button);
+    }
+    function stopButtonLoading(button) {
+      if (!button || button.dataset.loading !== 'true') return;
+      button.innerHTML = button.dataset.loadingHtml || button.innerHTML;
+      button.disabled = button.dataset.loadingDisabled === 'true';
+      button.classList.remove('is-loading');
+      delete button.dataset.loading;
+      delete button.dataset.loadingHtml;
+      delete button.dataset.loadingDisabled;
+      loadingButtons.delete(button);
+    }
+    function stopAllButtonLoading() {
+      if (loadingReleaseTimer) {
+        clearTimeout(loadingReleaseTimer);
+        loadingReleaseTimer = null;
+      }
+      [...loadingButtons].forEach(stopButtonLoading);
+    }
+    function scheduleButtonLoadingRelease() {
+      if (activeFetches || loadingReleaseTimer) return;
+      loadingReleaseTimer = setTimeout(() => {
+        loadingReleaseTimer = null;
+        if (!activeFetches) stopAllButtonLoading();
+      }, 0);
+    }
+    window.fetch = (...args) => {
+      activeFetches += 1;
+      let request;
+      try {
+        request = nativeFetch(...args);
+      } catch (error) {
+        activeFetches -= 1;
+        scheduleButtonLoadingRelease();
+        throw error;
+      }
+      return request.finally(() => {
+        activeFetches = Math.max(0, activeFetches - 1);
+        scheduleButtonLoadingRelease();
+      });
+    };
+    const loadingActionPattern = /\b(?:loadEvents|syncData|predict(?:WithLine)?|showPool|showHistory|showMetrics|optimizeModel|syncResults|clearPoolDates|batchPredict(?:Selected)?|recommendParlay|savePoolHandicap|removePool|syncAllPool|syncOdds|syncContext)\s*\(/;
+    document.addEventListener('click', event => {
+      const button = event.target.closest('button');
+      if (!button || button.disabled) return;
+      const onclick = button.getAttribute('onclick') || '';
+      const isFormSubmit = Boolean(button.form && button.type === 'submit');
+      if (isFormSubmit || button.id === 'bulk-remove-confirm' || loadingActionPattern.test(onclick)) startButtonLoading(button);
+    }, true);
+    document.addEventListener('submit', event => {
+      const button = event.submitter || event.target.querySelector('button[type="submit"], button:not([type])');
+      if (button) startButtonLoading(button);
+    }, true);
+    function parseDateTime(value) {
+      let raw = String(value ?? '').trim();
+      if (!raw) return null;
+      if (raw.endsWith(' UTC')) raw = raw.slice(0, -4).replace(' ', 'T') + 'Z';
+      else if (/^\d{4}-\d{2}-\d{2} /.test(raw) && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(raw)) raw = raw.replace(' ', 'T') + '+08:00';
+      const date = new Date(raw);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    function beijingParts(value) {
+      const date = parseDateTime(value);
+      if (!date) return null;
+      return Object.fromEntries(new Intl.DateTimeFormat('zh-CN', {timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23'}).formatToParts(date).filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+    }
+    function beijingTime(value) {
+      const parts = beijingParts(value);
+      return parts ? `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} 北京时间` : String(value ?? '');
+    }
+    function beijingDate(value) {
+      const parts = beijingParts(value);
+      return parts ? `${parts.year}-${parts.month}-${parts.day}` : '';
+    }
+    let poolRows = [];
+    let parlayLegs = [];
+    let latestBatchPredictions = [];
+    let selectedEventIds = new Set();
+    let selectedPoolIds = new Set();
+    async function api(path, body) {
+      const r = await fetch(path, body === undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+      const data = await r.json();
+      if (!r.ok || data.error) throw new Error(data.error || '请求失败');
+      return data;
+    }
+    function teamLabel(event, side) { return esc(event[`${side}_team_zh`] || event[`${side}_team`]); }
+    function leagueLabel(event) { return esc(event.league_zh || event.league); }
+    function contextStatusLabel(context) {
+      if (!context) return '赛前数据：尚未抓取';
+      const seasons = context.stats_seasons || {};
+      const seasonLabel = seasons.home || seasons.away ? `历史赛季 ${seasons.home || '—'} / ${seasons.away || '—'}` : '当前赛季';
+      const statsLabel = context.stats_fallback ? `攻防：${seasonLabel}` : `攻防：${context.stats_available ? '已接入' : '待补'}`;
+      return `赛前数据：${statsLabel} · 首发：${context.lineups_available ? '已接入' : '待公布'} · 伤停：${context.injuries_available ? '已接入' : '待补'}`;
+    }
+    function report(error) { const message = error.message || '操作失败，请重试'; stopAllButtonLoading(); $('status').textContent = message; notify(message, 'error'); }
+    document.querySelector('aside .notice').textContent = '赛事通过公开 API 批量同步；竞彩截图用于选场，国际胜平负赔率用于市场分析。示例赛事不参与推荐排序。';
+    renderEvents = function () {
+      const selectedDate = $('event-date').value;
+      const keyword = $('keyword').value.trim().toLowerCase();
+      const list = events.filter(e => (!$('league').value || e.league === $('league').value) && (!selectedDate || beijingDate(e.kickoff_at) === selectedDate) && (!keyword || `${e.home_team}${e.away_team}${e.home_team_zh || ''}${e.away_team_zh || ''}`.toLowerCase().includes(keyword)));
+      selectedEventIds = new Set([...selectedEventIds].filter(id => list.some(event => event.id === id)));
+      const selectedCount = selectedEventIds.size;
+      const actions = list.length ? `<div class="pool-actions"><b>已选 ${selectedCount} 场</b><button onclick="bulkAddSelected()" ${selectedCount ? '' : 'disabled'}>批量加入候选池</button><button onclick="bulkPredictSelected()" ${selectedCount ? '' : 'disabled'}>批量生成概率</button><button class="secondary" onclick="selectedEventIds.clear(); renderEvents()" ${selectedCount ? '' : 'disabled'}>清空选择</button></div>` : '';
+      const cards = list.map(e => `<article class="card event"><label class="market-choice selection-toggle"><input type="checkbox" ${selectedEventIds.has(e.id) ? 'checked' : ''} onchange="toggleEventSelection(${e.id}, this.checked)">选择本场</label><span class="badge">${leagueLabel(e)}${e.source === 'manual/demo' ? ' · 演示' : ''}</span><h3>${teamLabel(e, 'home')} vs ${teamLabel(e, 'away')}</h3><p class="muted">${esc(beijingTime(e.kickoff_at))}</p><label>体彩让球（可留空）<input class="handicap-input" id="line-${e.id}" type="number" step="1" min="-20" max="20" placeholder="如 -1"></label><button onclick="predictWithLine(${e.id})">生成概率预测</button> <button class="secondary" onclick="confirmEvent(${e.id})">加入候选池</button></article>`).join('');
+      $('events').innerHTML = actions + (cards || '<div class="card">没有符合条件的赛事。</div>');
+    };
+    function toggleEventSelection(id, checked) {
+      if (checked) selectedEventIds.add(id); else selectedEventIds.delete(id);
+      renderEvents();
+    }
+    function selectedEvents() { return events.filter(event => selectedEventIds.has(event.id)); }
+    function bulkAddSelected() {
+      const rows = selectedEvents();
+      if (!rows.length) return report(new Error('请先选择比赛'));
+      openModal(`<form id="bulk-add-form"><h2>批量加入候选池</h2><p>已选择 ${rows.length} 场比赛：</p><label>统一填写竞彩让球（可留空）<input id="bulk-lottery-line" type="number" step="1" min="-20" max="20" placeholder="如 -1；留空不覆盖已有值"></label><ul>${rows.map(e => `<li>${leagueLabel(e)} · ${teamLabel(e, 'home')} vs ${teamLabel(e, 'away')} · ${esc(beijingTime(e.kickoff_at))}</li>`).join('')}</ul><p class="muted">填写后会应用到本次选择的全部比赛；留空则保留原有让球。</p><div class="modal-actions"><button type="button" class="secondary" onclick="closeModal()">取消</button><button>确认加入 ${rows.length} 场</button></div></form>`);
+      $('bulk-add-form').onsubmit = async event => {
+        event.preventDefault();
+        try {
+          const body = {event_ids: rows.map(item => item.id)};
+          if ($('bulk-lottery-line').value !== '') body.lottery_handicap = Number($('bulk-lottery-line').value);
+          const data = await api('/api/shortlist/bulk', body);
+          selectedEventIds.clear();
+          closeModal();
+          await showPool();
+          notify(`已加入候选池 ${data.count} 场`, 'success');
+        } catch (error) { report(error); }
+      };
+    }
+    function bulkPredictSelected() {
+      const rows = selectedEvents();
+      if (!rows.length) return report(new Error('请先选择比赛'));
+      openModal(`<form id="bulk-predict-form"><h2>批量生成概率</h2><p>已选择 ${rows.length} 场比赛，请选择要生成的结果：</p><label>统一填写竞彩让球（可留空）<input id="bulk-predict-lottery-line" type="number" step="1" min="-20" max="20" placeholder="如 -1；留空不覆盖已有值"></label><div class="pool-actions"><label class="market-choice"><input name="market" type="checkbox" value="win_draw_loss" checked>胜平负</label><label class="market-choice"><input name="market" type="checkbox" value="handicap" checked>让球</label><label class="market-choice"><input name="market" type="checkbox" value="total_goals" checked>总进球</label><label class="market-choice"><input name="market" type="checkbox" value="half_full" checked>半全场</label><label class="market-choice"><input name="market" type="checkbox" value="score" checked>比分</label></div><ul>${rows.map(e => `<li>${teamLabel(e, 'home')} vs ${teamLabel(e, 'away')} · ${esc(beijingTime(e.kickoff_at))}</li>`).join('')}</ul><div class="modal-actions"><button type="button" class="secondary" onclick="closeModal()">取消</button><button>加入候选池并生成</button></div></form>`);
+      $('bulk-predict-form').onsubmit = async event => {
+        event.preventDefault();
+        const markets = [...document.querySelectorAll('#bulk-predict-form input[name="market"]:checked')].map(input => input.value);
+        if (!markets.length) return report(new Error('请至少选择一个结果类型'));
+        try {
+          const body = {event_ids: rows.map(item => item.id)};
+          if ($('bulk-predict-lottery-line').value !== '') body.lottery_handicap = Number($('bulk-predict-lottery-line').value);
+          await api('/api/shortlist/bulk', body);
+          selectedEventIds.clear();
+          closeModal();
+          await runBatchPredict(rows.map(item => item.id), markets);
+        } catch (error) { report(error); }
+      };
+    }
+    function predictWithLine(id) {
+      const value = document.getElementById(`line-${id}`)?.value ?? '';
+      return predict(id, value);
+    }
+    function confirmEvent(id) {
+      const e = events.find(x => x.id === id);
+      if (!e) return report(new Error('赛事信息已更新，请先刷新赛事'));
+      openModal(`<form id="confirm-event"><h2>确认比赛</h2><p>${leagueLabel(e)} · ${teamLabel(e, 'home')} vs ${teamLabel(e, 'away')}</p><p>${esc(beijingTime(e?.kickoff_at))}</p><label>竞彩主队让球（可留空；主让一球填 -1）<input id="lottery-line" type="number" step="1" min="-20" max="20"></label><p class="muted">请核对日期、球队顺序和截图；不会从国际亚洲盘推断竞彩让球。</p><div class="modal-actions"><button type="button" class="secondary" onclick="closeModal()">取消</button><button>确认加入候选池</button></div></form>`);
+      notify('请确认比赛信息后加入候选池', 'info');
+      $('confirm-event').onsubmit = async ev => {
+        ev.preventDefault();
+        try {
+          await api('/api/shortlist', {event_id:id, lottery_handicap:$('lottery-line').value === '' ? null : Number($('lottery-line').value)});
+          closeModal();
+          await showPool();
+          notify('已加入候选池', 'success');
+        } catch (err) { report(err); }
+      };
+    }
+    async function showPool() {
+      try {
+        showPage('pool');
+        const fromDate = $('pool-from')?.value || '';
+        const toDate = $('pool-to')?.value || '';
+        const params = new URLSearchParams();
+        if (fromDate) params.set('from_date', fromDate);
+        if (toDate) params.set('to_date', toDate);
+        const rows = await api(`/api/shortlist${params.toString() ? `?${params}` : ''}`);
+        poolRows = rows;
+        selectedPoolIds = new Set([...selectedPoolIds].filter(id => rows.some(row => row.id === id)));
+        const options = rows.length ? `<div class="pool-actions" id="pool-market-options"><b>生成结果：</b><label class="market-choice"><input type="checkbox" value="win_draw_loss" checked> 胜平负</label><label class="market-choice"><input type="checkbox" value="handicap" checked> 让球</label><label class="market-choice"><input type="checkbox" value="total_goals" checked> 总进球</label><label class="market-choice"><input type="checkbox" value="half_full" checked> 半全场</label><label class="market-choice"><input type="checkbox" value="score" checked> 比分</label><button onclick="batchPredict()">一键生成全部</button><button id="pool-predict-selected" onclick="batchPredictSelected()" ${selectedPoolIds.size ? '' : 'disabled'}>生成选中（<span id="pool-selected-count">${selectedPoolIds.size}</span>）</button><button class="secondary" onclick="syncAllPool('odds')">一键获取全部赔率</button><button class="secondary" onclick="syncAllPool('context')">一键更新首发/伤停</button><button class="secondary" id="pool-remove-selected" onclick="bulkRemovePool()" ${selectedPoolIds.size ? '' : 'disabled'}>移出选中</button><button class="secondary" onclick="showParlay()">串关推荐</button></div>` : '';
+        $('pool-content').innerHTML = `<div class="page-heading"><h2>竞彩候选池</h2><button class="secondary" onclick="showPage('home')">返回赛事首页</button></div><div class="card result"><div class="pool-actions"><label class="market-choice">开始日期 <input id="pool-from" type="date" value="${esc(fromDate)}" onchange="showPool()"></label><label class="market-choice">结束日期 <input id="pool-to" type="date" value="${esc(toDate)}" onchange="showPool()"></label><button class="secondary" onclick="showPool()">筛选</button><button class="secondary" onclick="clearPoolDates()">清空日期</button></div><p class="muted">当前筛选到 ${rows.length} 场。选择结果类型后点击“一键生成结果”，只会生成当前日期范围内的比赛。</p>${options}${rows.map(e => {
+          const q = e.market;
+          const autoOdds = e.source === 'manual/demo' ? '' : `<button onclick="syncOdds(${e.id})">自动获取赔率</button>`;
+          const context = e.context;
+          const contextButton = e.context_supported ? `<button onclick="syncContext(${e.id})">更新首发/伤停</button>` : '';
+          const contextStatus = e.context_supported ? contextStatusLabel(context) : '低级联赛不接入赛前数据';
+          return `<article class="card"><label class="market-choice selection-toggle"><input type="checkbox" ${selectedPoolIds.has(e.id) ? 'checked' : ''} onchange="togglePoolSelection(${e.id}, this.checked)">选择本场</label><h3>${teamLabel(e, 'home')} vs ${teamLabel(e, 'away')}</h3><p>${esc(beijingTime(e.kickoff_at))}</p><label>竞彩让球（可手动补填）<input id="pool-line-${e.id}" type="number" step="1" min="-20" max="20" value="${e.lottery_handicap ?? ''}" placeholder="如 -1"></label><button class="secondary" onclick="savePoolHandicap(${e.id})">保存让球</button><p class="muted">${contextStatus}${context?.captured_at ? ` · ${esc(beijingTime(context.captured_at))}` : ''}</p>${q ? `<p>${esc(q.source)}${q.bookmaker ? ` · ${esc(q.bookmaker)}` : ''} · ${esc(beijingTime(q.captured_at))}</p><p>${Object.entries(q.probabilities).map(([k,v]) => `${k} ${(v*100).toFixed(1)}%${e.change ? `（变化 ${(e.change[k]*100).toFixed(1)} 个百分点）` : ''}`).join(' / ')}</p><p>赔率超额：${(q.overround*100).toFixed(1)}% · ${e.eligible ? '市场倾向：'+esc(q.selection) : '仅展示，不列入推荐'}</p>` : '<p>缺少国际赔率，暂不生成市场分析。</p>'}${autoOdds} ${contextButton} <button class="secondary" onclick="quoteForm(${e.id})">手工录入赔率</button> <button class="secondary" onclick="removePool(${e.id})">移出候选池</button></article>`;
+        }).join('') || '<p>当前日期范围内没有候选比赛。</p>'}<p class="notice">候选池的“一键生成结果”使用当前模型一次性生成胜平负、让球、总进球、半全场和比分；没有填写竞彩让球的比赛会跳过让球概率。</p></div>`;
+        notify(`候选池已加载：${rows.length} 场`);
+      } catch (error) { report(error); }
+    }
+    function togglePoolSelection(id, checked) {
+      if (checked) selectedPoolIds.add(id); else selectedPoolIds.delete(id);
+      const count = selectedPoolIds.size;
+      if ($('pool-selected-count')) $('pool-selected-count').textContent = count;
+      if ($('pool-predict-selected')) $('pool-predict-selected').disabled = count === 0;
+      if ($('pool-remove-selected')) $('pool-remove-selected').disabled = count === 0;
+    }
+    async function bulkRemovePool() {
+      const ids = [...selectedPoolIds];
+      if (!ids.length) return report(new Error('请先选择候选比赛'));
+      openModal(`<div><h2>移出候选池</h2><p>确定移出已选择的 ${ids.length} 场比赛吗？</p><div class="modal-actions"><button class="secondary" onclick="closeModal()">取消</button><button id="bulk-remove-confirm">确认移出</button></div></div>`);
+      $('bulk-remove-confirm').onclick = async () => {
+        try {
+          const data = await api('/api/shortlist/bulk-remove', {event_ids: ids});
+          selectedPoolIds.clear();
+          closeModal();
+          await showPool();
+          notify(`已移出候选池 ${data.count} 场`, 'success');
+        } catch (error) { report(error); }
+      };
+    }
+    function clearPoolDates() {
+      if ($('pool-from')) $('pool-from').value = '';
+      if ($('pool-to')) $('pool-to').value = '';
+      showPool();
+    }
+    function selectedMarkets() {
+      return [...document.querySelectorAll('#pool-market-options input:checked')].map(input => input.value);
+    }
+    function predictionMetric(title, value) {
+      return `<div class="metric"><div>${title}</div><strong>${value}</strong></div>`;
+    }
+    function detailNumber(value) { return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(2) : '—'; }
+    function detailPlayers(players) { return (players || []).map(player => esc(player.name || '未知球员')).join('、') || '暂无'; }
+    function detailLineup(lineup) {
+      if (!lineup) return '<p>首发：未返回</p>';
+      return `<p>教练：${esc(lineup.coach || '—')} · 阵型：${esc(lineup.formation || '—')}</p><p>首发：${detailPlayers(lineup.startXI)}</p><p>替补：${detailPlayers(lineup.substitutes)}</p>`;
+    }
+    function detailInjuries(items) {
+      return (items || []).map(item => `${esc(item.player || '未知球员')}${item.reason ? `（${esc(item.reason)}）` : ''}`).join('、') || '暂无记录';
+    }
+    function showPredictionDetails(index) {
+      const item = latestBatchPredictions[index];
+      if (!item) return report(new Error('预测详情已失效，请重新生成'));
+      const event = item.event;
+      const prediction = item.prediction;
+      const context = prediction.data_context || {};
+      const homeStats = context.home_stats || {};
+      const awayStats = context.away_stats || {};
+      const injuries = context.injuries || {};
+      const lineups = context.lineups || {};
+      const factors = (prediction.factors || []).map(factor => `<li>${esc(factor)}</li>`).join('') || '<li>暂无模型说明</li>';
+      const winDrawLoss = Object.entries(prediction.win_draw_loss || {}).map(([key, value]) => `${esc(key)} ${(value * 100).toFixed(1)}%`).join(' / ');
+      const totals = Object.entries(prediction.total_goals || {}).map(([key, value]) => `${esc(key)}球 ${(value * 100).toFixed(1)}%`).join(' / ');
+      const scores = (prediction.score_distribution || []).map(value => `${esc(value.score)} ${(value.probability * 100).toFixed(1)}%`).join(' / ');
+      openModal(`<div><h2>预测详情</h2><p><b>${teamLabel(event, 'home')} vs ${teamLabel(event, 'away')}</b></p><p class="muted">${esc(beijingTime(event.kickoff_at))} · ${leagueLabel(event)}</p><div class="result-grid"><div class="metric">推荐<strong>${esc(prediction.recommendation || '—')}</strong></div><div class="metric">胜平负<strong>${winDrawLoss || '—'}</strong></div><div class="metric">期望进球<strong>${prediction.expected_goals?.home ?? '—'} - ${prediction.expected_goals?.away ?? '—'}</strong></div><div class="metric">置信度<strong>${prediction.confidence == null ? '—' : (prediction.confidence * 100).toFixed(1) + '%'}</strong></div></div><h3>历史攻防参数</h3><p>主队：进攻 ${detailNumber(homeStats.home_attack)} · 防守 ${detailNumber(homeStats.home_defense)} · 赛季 ${esc(context.stats_seasons?.home || context.season || '—')}</p><p>客队：进攻 ${detailNumber(awayStats.away_attack)} · 防守 ${detailNumber(awayStats.away_defense)} · 赛季 ${esc(context.stats_seasons?.away || context.season || '—')}</p><h3>首发与伤停</h3><p>主队伤停：${detailInjuries(injuries.home)} </p><p>客队伤停：${detailInjuries(injuries.away)}</p><h4>主队首发</h4>${detailLineup(lineups.home)}<h4>客队首发</h4>${detailLineup(lineups.away)}<h3>完整概率</h3><p>总进球：${totals || '—'}</p><p>比分：${scores || '—'}</p><h3>模型说明</h3><ul>${factors}</ul>${context.warnings?.length ? `<p class="notice">数据提示：${context.warnings.map(esc).join('；')}</p>` : ''}<p class="muted">模型版本：${esc(prediction.model_version || '—')} · 生成时间：${esc(beijingTime(prediction.generated_at))}</p><div class="modal-actions"><button type="button" class="secondary" onclick="closeModal()">关闭</button></div></div>`);
+    }
+    function renderBatchPrediction(item, markets, index) {
+      const event = item.event;
+      const prediction = item.prediction;
+      const blocks = [];
+      if (markets.includes('win_draw_loss')) {
+        blocks.push(predictionMetric('胜平负', Object.entries(prediction.win_draw_loss).map(([key, value]) => `${esc(key)} ${(value * 100).toFixed(1)}%`).join(' / ')));
+      }
+      if (markets.includes('handicap')) {
+        const values = prediction.handicap?.probabilities;
+        blocks.push(predictionMetric('让球', values ? Object.entries(values).map(([key, value]) => `${esc(key)} ${(value * 100).toFixed(1)}%`).join(' / ') : '未填写让球'));
+      }
+      if (markets.includes('total_goals')) {
+        const values = Object.entries(prediction.total_goals).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        blocks.push(predictionMetric('总进球 Top 3', values.map(([key, value]) => `${esc(key)}球 ${(value * 100).toFixed(1)}%`).join(' / ')));
+      }
+      if (markets.includes('half_full')) {
+        const values = Object.entries(prediction.half_full).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        blocks.push(predictionMetric('半全场 Top 3', values.map(([key, value]) => `${esc(key)} ${(value * 100).toFixed(1)}%`).join(' / ')));
+      }
+      if (markets.includes('score')) {
+        blocks.push(predictionMetric('比分 Top 5', prediction.score_distribution.map(value => `${esc(value.score)} ${(value.probability * 100).toFixed(1)}%`).join(' / ')));
+      }
+      const context = prediction.data_context || {};
+      const contextStatus = context.provider ? `${contextStatusLabel(context)} · ${context.cached ? '本地缓存' : '已更新'}${context.warnings?.length ? ' · 部分数据缺失' : ''}` : '赛前数据：未接入';
+      return `<article class="card pool-result"><h3>${teamLabel(event, 'home')} vs ${teamLabel(event, 'away')}</h3><p class="muted">${esc(beijingTime(event.kickoff_at))} · ${esc(prediction.confidence_level)} · 置信度 ${(prediction.confidence * 100).toFixed(1)}% · 期望进球 ${prediction.expected_goals.home} - ${prediction.expected_goals.away}</p><p class="muted">${contextStatus}</p><div class="result-grid">${blocks.join('')}</div><p class="muted">数据完整度 ${(prediction.data_quality.score * 100).toFixed(0)}%；缺少：${prediction.data_quality.missing.map(esc).join('、') || '无'}</p><button class="secondary" onclick="showPredictionDetails(${index})">查看详情</button></article>`;
+    }
+    async function runBatchPredict(eventIds = null, marketOverride = null) {
+      const markets = marketOverride || selectedMarkets();
+      if (!markets.length) return report(new Error('请至少选择一个结果类型'));
+      const fromDate = eventIds ? '' : ($('pool-from')?.value || '');
+      const toDate = eventIds ? '' : ($('pool-to')?.value || '');
+      notify('正在批量生成候选池结果…', 'info');
+      try {
+        const body = {markets, from_date: fromDate, to_date: toDate};
+        if (eventIds) body.event_ids = eventIds;
+        const data = await api('/api/shortlist/predict', body);
+        latestBatchPredictions = data.predictions || [];
+        const dateRange = fromDate || toDate ? ` · 日期：${fromDate || '不限'} 至 ${toDate || '不限'}` : '';
+        showPage('pool');
+        $('pool-content').innerHTML = `<div class="page-heading"><h2>候选池预测结果</h2><button class="secondary" onclick="showPool()">返回候选池</button></div><div class="card result"><p class="muted">已生成 ${data.count} 场${dateRange}；结果类型：${markets.map(market => ({win_draw_loss:'胜平负', handicap:'让球', total_goals:'总进球', half_full:'半全场', score:'比分'}[market])).join('、')}</p>${data.predictions.map((item, index) => renderBatchPrediction(item, markets, index)).join('')}</div>`;
+        window.scrollTo({top: 0, behavior:'smooth'});
+        notify(`已生成 ${data.count} 场预测结果`);
+      } catch (error) { report(error); }
+    }
+    async function batchPredict() { return runBatchPredict(); }
+    async function batchPredictSelected() {
+      const ids = [...selectedPoolIds];
+      if (!ids.length) return report(new Error('请先选择候选比赛'));
+      return runBatchPredict(ids);
+    }
+    function renderParlayResult(data) {
+      const legs = data.legs.map(item => `<p><b>${teamLabel(item.event, 'home')} vs ${teamLabel(item.event, 'away')}</b> · 推荐 ${esc(item.selection)} · 模型命中 ${(item.probability * 100).toFixed(1)}%${item.odds == null ? '' : ` · 赔率 ${Number(item.odds).toFixed(3)}`} · ${esc(item.reason || data.strategy_label || '')}</p>`).join('');
+      const odds = data.combined_odds == null ? '暂无完整赔率' : Number(data.combined_odds).toFixed(3);
+      return `<div class="page-heading"><h2>${esc(data.type)}推荐结果</h2><button class="secondary" onclick="showParlay()">重新推荐</button></div><div class="card result"><p class="muted">策略：${esc(data.strategy_label || '—')} · 来源：当前候选池</p><div class="result-grid"><div class="metric">组合命中概率<strong>${(data.combined_probability * 100).toFixed(2)}%</strong></div><div class="metric">组合赔率<strong>${odds}</strong></div></div><h3>推荐明细</h3>${legs}<p class="notice">组合命中概率按各场模型概率相乘的独立近似计算，仅用于分析，不代表确定结果或投注建议。</p></div>`;
+    }
+    async function showParlay() {
+      showPage('parlay');
+      try {
+        if (!poolRows.length) poolRows = await api('/api/shortlist');
+      } catch (error) {
+        return report(error);
+      }
+      $('parlay-content').innerHTML = `<div class="page-heading"><h2>串关推荐</h2><button class="secondary" onclick="showPool()">返回候选池</button></div><div class="card result"><p>系统会根据当前候选池的模型概率和已有国际赔率，自动选择更适合的比赛与结果。</p><label>串关类型<select id="parlay-type"><option value="2串1">2串1</option><option value="3串1">3串1</option><option value="4串1">4串1</option><option value="5串1">5串1</option><option value="6串1">6串1</option><option value="7串1">7串1</option><option value="8串1">8串1</option></select></label><label>推荐策略<select id="parlay-strategy"><option value="safe">稳健型：优先选择模型最高概率</option><option value="balanced">均衡型：综合模型概率与市场概率</option><option value="value">高赔型：优先考虑概率与赔率的乘积</option></select></label><p class="muted">当前候选池：${poolRows.length} 场；至少需要满足所选串关类型的比赛数量。</p><div class="modal-actions"><button onclick="recommendParlay()">生成串关推荐</button></div></div>`;
+    }
+    async function recommendParlay() {
+      if (!poolRows.length) return report(new Error('候选池为空，请先加入比赛'));
+      notify('正在根据候选池生成串关推荐…', 'info');
+      try {
+        const data = await api('/api/parlay/recommend', {parlay_type: $('parlay-type').value, strategy: $('parlay-strategy').value, event_ids: poolRows.map(item => item.id)});
+        $('parlay-content').innerHTML = renderParlayResult(data);
+        notify('串关推荐完成');
+      } catch (error) { report(error); }
+    }
+    async function savePoolHandicap(id) {
+      const value = $(`pool-line-${id}`)?.value ?? '';
+      try {
+        await api('/api/shortlist', {event_id:id, lottery_handicap:value === '' ? null : Number(value)});
+        await showPool();
+        notify(value === '' ? '已清空竞彩让球' : '竞彩让球已保存', 'success');
+      } catch (error) { report(error); }
+    }
+    async function removePool(id) { try { await api('/api/shortlist/remove', {event_id:id}); await showPool(); } catch(e) { report(e); } }
+    async function syncAllPool(kind) {
+      if (!poolRows.length) return report(new Error('候选池为空'));
+      const label = kind === 'odds' ? '赔率' : '首发/伤停';
+      notify(`正在批量更新${label}，请稍候…`, 'info');
+      try {
+        const data = await api('/api/sync/shortlist', {kind, event_ids:poolRows.map(item => item.id)});
+        await showPool();
+        const message = `已更新 ${data.updated}/${data.requested} 场${data.request_count ? `，调用 ${data.request_count} 次` : ''}`;
+        notify(data.warnings?.length ? `${message}；部分比赛未完成` : message, data.warnings?.length ? 'info' : 'success');
+      } catch (error) { report(error); }
+    }
+    async function syncOdds(id) {
+      notify('正在获取 API-Football 国际赔率…', 'info');
+      try {
+        const data = await api('/api/sync/odds', {event_id:id});
+        await showPool();
+        const message = data.imported ? `已获取 ${data.imported} 家公司的赔率` : '赔率已存在，没有新增报价';
+        notify(data.warnings?.length ? `${message}；部分报价被跳过` : message, data.warnings?.length ? 'info' : 'success');
+      } catch (error) { report(error); }
+    }
+    async function syncContext(id) {
+      notify('正在获取赛季攻防、首发和伤停…', 'info');
+      try {
+        const data = await api('/api/sync/context', {event_id:id, force:true});
+        await showPool();
+        const message = `赛前数据已更新：伤停 ${data.home_injury_count + data.away_injury_count} 条${data.lineups_available ? '，首发已返回' : '，首发暂未返回'}`;
+        notify(data.warnings?.length ? `${message}；部分数据缺失` : message, data.warnings?.length ? 'info' : 'success');
+      } catch (error) { report(error); }
+    }
+    function quoteForm(id) {
+      openModal(`<form id="quote-form"><h2>录入国际赔率</h2><p>同一公司、同一时点、常规时间胜平负；十进制含本金赔率（例如 2.00）。此处不接受亚洲盘水位。</p><label>来源 / 公司<input id="quote-source" required maxlength="200"></label><label>赔率时间（本机时区）<input id="quote-time" type="datetime-local" required></label>${[['home','主胜'],['draw','平局'],['away','客胜']].map(([key,label]) => `<label>${label}<input id="quote-${key}" type="number" step="0.001" min="1.001" max="1000" required></label>`).join('')}<div class="modal-actions"><button type="button" class="secondary" onclick="closeModal()">取消</button><button>保存并分析</button></div></form>`);
+      $('quote-form').onsubmit = async ev => {
+        ev.preventDefault();
+        try { await api('/api/market-quotes', {event_id:id, source:$('quote-source').value, captured_at:new Date($('quote-time').value).toISOString(), home:Number($('quote-home').value), draw:Number($('quote-draw').value), away:Number($('quote-away').value)}); closeModal(); await showPool(); notify('国际赔率已保存', 'success'); } catch(e) { report(e); }
+      };
+    }
+    uploadImage = async function () {
+      const file = $('image').files[0]; if (!file) return;
+      showPage('home');
+      $('status').textContent = '正在识别截图…';
+      try {
+        const form = new FormData(); form.append('image', file);
+        const r = await fetch('/api/upload', {method:'POST', body:form}); const data = await r.json();
+        if (!r.ok) throw new Error(data.error);
+        $('status').textContent = data.message;
+        $('result').innerHTML = `<div class="card result"><h2>识别后确认比赛</h2><pre style="white-space:pre-wrap">${esc(data.text)}</pre>${(data.candidates || []).map(x => `<p>${leagueLabel(x.event)} · ${esc(beijingTime(x.event.kickoff_at))} · ${teamLabel(x.event, 'home')} vs ${teamLabel(x.event, 'away')} <button onclick="confirmEvent(${x.event.id})">核对并加入</button></p>`).join('') || '<p>没有匹配结果，请从列表选择。OCR 不可用时可直接手动选场。</p>'}</div>`;
+      } catch(e) { report(e); }
+    };
+    uploadImage = async function () {
+      const file = $('image').files[0];
+      if (!file) return;
+      startButtonLoading($('upload-image-button'));
+      const form = new FormData();
+      form.append('image', file);
+      showPage('home');
+      $('status').textContent = '正在识别图片…';
+      openModal('<div class="card result">正在识别图片…</div>');
+      try {
+        const r = await fetch('/api/upload', {method:'POST', body:form});
+        const data = await r.json();
+        if (!r.ok || data.error) throw new Error(data.error || '图片识别失败');
+        $('status').textContent = data.message || '图片识别完成';
+        const candidates = data.candidates || [];
+        openModal(`<div><h2>截图识别结果</h2><p class="muted">${esc(data.text || '未识别到可用文字')}</p><h3>候选赛事</h3>${candidates.length ? candidates.map(x => `<p><b>${teamLabel(x.event, 'home')} vs ${teamLabel(x.event, 'away')}</b>　匹配度 ${(x.match_score*100).toFixed(0)}%　<button onclick="confirmEvent(${x.event.id})">核对并加入</button></p>`).join('') : '<p class="muted">没有匹配到赛事，请从列表手动选择。</p>'}</div>`);
+      } catch (error) {
+        closeModal();
+        report(error);
+      }
+    };
+    const initialPage = location.hash.slice(1);
+    if (initialPage === 'pool') showPool();
+    else if (initialPage === 'parlay') showParlay();
+    else if (initialPage === 'history') showHistory();
+    else if (initialPage === 'metrics') showMetrics();
+    else showPage('home');
   </script>
 </body>
 </html>
