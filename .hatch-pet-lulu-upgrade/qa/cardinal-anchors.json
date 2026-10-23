@@ -1,0 +1,61 @@
+{
+  "ok": true,
+  "strip": "/Users/xiaoyang/Documents/football_predict/.hatch-pet-lulu-upgrade/decoded/look-cardinals.png",
+  "directions": [
+    "000",
+    "090",
+    "180",
+    "270"
+  ],
+  "errors": [],
+  "anchors": [
+    {
+      "direction": "000",
+      "source_box": [
+        0,
+        0,
+        520,
+        757
+      ],
+      "used_pixels": 143466,
+      "edge_pixels": 0,
+      "output": "/Users/xiaoyang/Documents/football_predict/.hatch-pet-lulu-upgrade/decoded/look-anchors/000.png"
+    },
+    {
+      "direction": "090",
+      "source_box": [
+        520,
+        0,
+        1039,
+        757
+      ],
+      "used_pixels": 137645,
+      "edge_pixels": 0,
+      "output": "/Users/xiaoyang/Documents/football_predict/.hatch-pet-lulu-upgrade/decoded/look-anchors/090.png"
+    },
+    {
+      "direction": "180",
+      "source_box": [
+        1039,
+        0,
+        1558,
+        757
+      ],
+      "used_pixels": 143544,
+      "edge_pixels": 0,
+      "output": "/Users/xiaoyang/Documents/football_predict/.hatch-pet-lulu-upgrade/decoded/look-anchors/180.png"
+    },
+    {
+      "direction": "270",
+      "source_box": [
+        1558,
+        0,
+        2078,
+        757
+      ],
+      "used_pixels": 134171,
+      "edge_pixels": 0,
+      "output": "/Users/xiaoyang/Documents/football_predict/.hatch-pet-lulu-upgrade/decoded/look-anchors/270.png"
+    }
+  ]
+}
